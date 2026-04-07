@@ -2,11 +2,58 @@ import streamlit as st
 import pandas as pd
 import io
 import math
+import requests
 
 # ==================== 网页基础设置 ====================
-st.set_page_config(page_title="TK 卖家全能工具箱 2.0", layout="wide")
+st.set_page_config(page_title="TK 卖家全能工具箱 3.0", layout="wide", page_icon="🚀")
 
-# --- 侧边栏导航与国家配置 ---
+# ==================== 实时汇率抓取引擎 ====================
+@st.cache_data(ttl=43200) # 缓存12小时，防止API频繁调用被封IP
+def get_realtime_rates():
+    try:
+        url = "https://api.exchangerate-api.com/v4/latest/CNY"
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        return data['rates']
+    except Exception as e:
+        return None
+
+live_rates = get_realtime_rates()
+
+# ==================== 国家费率与物流底表配置 ====================
+COUNTRY_CONFIG = {
+    "泰国 (THB)": {
+        "rate": live_rates['THB'] if live_rates else 4.85, 
+        "comm": 5.56, "trans": 3.21, "srv": 4.63, "tax": 13.46, "sym": "฿", 
+        "base_w": 50, "base_p": 10.0, "add_w": 10, "add_p": 1.0
+    },
+    "越南 (VND)": {
+        "rate": live_rates['VND'] if live_rates else 3450.0, 
+        "comm": 6.87, "trans": 5.0, "srv": 3.0, "tax": 8.0, "sym": "₫", 
+        "base_w": 10, "base_p": 10900.0, "add_w": 10, "add_p": 900.0
+    },
+    "菲律宾 (PHP)": {
+        "rate": live_rates['PHP'] if live_rates else 7.85, 
+        "comm": 5.60, "trans": 2.24, "srv": 11.5, "tax": 0.0, "sym": "₱", 
+        "base_w": 10, "base_p": 10.50, "add_w": 10, "add_p": 4.50
+    },
+    "马来西亚 (MYR)": {
+        "rate": live_rates['MYR'] if live_rates else 0.65, 
+        "comm": 11.32, "trans": 3.78, "srv": 0.0, "tax": 10.0, "sym": "RM", 
+        "base_w": 10, "base_p": 0.15, "add_w": 10, "add_p": 0.15
+    }
+}
+
+# ==================== 跨境运费计算函数 ====================
+def calc_shipping(weight_g, cfg):
+    if weight_g <= cfg['base_w']:
+        return cfg['base_p']
+    else:
+        # 向上取整计算续重
+        extra_units = math.ceil((weight_g - cfg['base_w']) / cfg['add_w'])
+        return cfg['base_p'] + extra_units * cfg['add_p']
+
+# ==================== 侧边栏导航 ====================
 st.sidebar.title("🛠️ TK 卖家工具箱")
 app_mode = st.sidebar.radio("选择使用的工具", [
     "💰 1. 利润反推 (精准运费版)", 
@@ -14,33 +61,19 @@ app_mode = st.sidebar.radio("选择使用的工具", [
     "📊 3. 店铺数据筛选 (智能表格)"
 ])
 
-# 核心升级：加入了官方物流底表数据 (首重克数, 首重价格, 续重克数, 续重价格)
-COUNTRY_CONFIG = {
-    "泰国 (THB)": {"rate": 4.85, "comm": 5.56, "trans": 3.21, "srv": 4.63, "tax": 13.46, "sym": "฿", 
-                 "base_w": 50, "base_p": 10.0, "add_w": 10, "add_p": 1.0},
-    "越南 (VND)": {"rate": 3450, "comm": 6.87, "trans": 5.0, "srv": 3.0, "tax": 8.0, "sym": "₫", 
-                 "base_w": 10, "base_p": 10900.0, "add_w": 10, "add_p": 900.0},
-    "菲律宾 (PHP)": {"rate": 7.85, "comm": 5.60, "trans": 2.24, "srv": 11.5, "tax": 0.0, "sym": "₱", 
-                  "base_w": 10, "base_p": 10.50, "add_w": 10, "add_p": 4.50},
-    "马来西亚 (MYR)": {"rate": 0.65, "comm": 11.32, "trans": 3.78, "srv": 0.0, "tax": 10.0, "sym": "RM", 
-                   "base_w": 10, "base_p": 0.15, "add_w": 10, "add_p": 0.15}
-}
-
-# 运费计算核心函数
-def calc_shipping(weight_g, cfg):
-    if weight_g <= cfg['base_w']:
-        return cfg['base_p']
-    else:
-        # math.ceil 用于向上取整，例如超重 1 克也算一个续重单位
-        extra_units = math.ceil((weight_g - cfg['base_w']) / cfg['add_w'])
-        return cfg['base_p'] + extra_units * cfg['add_p']
-
-# 只有当用户不在筛选工具时，才显示汇率和国家选择
+# 如果不是在用表格筛选工具，就显示国家和汇率配置
 if app_mode != "📊 3. 店铺数据筛选 (智能表格)":
     st.sidebar.divider()
     target_country = st.sidebar.selectbox("🌍 选择当前核算国家", list(COUNTRY_CONFIG.keys()))
     config = COUNTRY_CONFIG[target_country]
-    curr_rate = st.sidebar.number_input(f"自定义汇率 (1 CNY = ? {config['sym']})", value=config['rate'], format="%.4f")
+    
+    if live_rates:
+        st.sidebar.success("✅ 实时汇率已更新")
+    else:
+        st.sidebar.warning("⚠️ 网络异常，当前使用系统默认保底汇率")
+        
+    curr_rate = st.sidebar.number_input(f"自定义汇率 (1 CNY = ? {config['sym']})", value=float(config['rate']), format="%.4f")
+
 
 # ==========================================
 # 模块 1：利润反推 (精准运费版)
@@ -55,7 +88,7 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
     with row1_col2:
         weight_g = st.number_input("包裹实际重量 (克/g)", value=100.0, step=10.0)
     with row1_col3:
-        other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=1.0, step=0.5, help="除了运费以外的固定支出，如纸箱、防静电袋等")
+        other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=2.0, step=0.5, help="除了运费以外的固定支出，如纸箱、防静电袋、平台小额订单费等")
 
     # 实时计算跨境运费
     ship_local = calc_shipping(weight_g, config)
@@ -123,7 +156,7 @@ elif app_mode == "🎯 2. 正向定价 (精准运费版)":
     with col1:
         cost = st.number_input("1. 产品拿货成本 (CNY)", value=30.0, step=1.0)
         weight_g = st.number_input("2. 包裹实际重量 (克/g)", value=100.0, step=10.0)
-        other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=1.0, step=0.5)
+        other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=2.0, step=0.5)
     with col2:
         target_margin = st.number_input("4. 目标净利润率 (%)", value=25.0, step=1.0)
         discount = st.number_input("5. 前台拟设折扣 (如 5折 填 5)", value=5.0, step=0.5)
@@ -155,7 +188,7 @@ elif app_mode == "🎯 2. 正向定价 (精准运费版)":
         r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}")
         r3.metric(f"你这单将稳赚净利", f"¥ {net_profit_cny:,.2f}")
         
-        st.caption(f"*(提示：当前折后售价中已自动包含 {ship_local:,.2f} {config['sym']} 的官方跨境运费损耗)*")
+        st.caption(f"*(提示：当前折后售价中已自动包含预估 {ship_local:,.2f} {config['sym']} 的官方跨境运费损耗)*")
 
 # ==========================================
 # 模块 3：店铺数据筛选 (智能表格)
