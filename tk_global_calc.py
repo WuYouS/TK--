@@ -282,7 +282,7 @@ elif app_mode == "📊 3. 店铺数据筛选 (智能表格)":
             st.error(f"读取或处理文件时出错，请确认表格格式是否正确。错误信息: {e}")
 
 # ==========================================
-# 模块 4：全球实时汇率换算器 (新增)
+# 模块 4：全球实时汇率换算器 (带一键互换功能)
 # ==========================================
 elif app_mode == "💱 4. 全球实时汇率换算":
     st.title("💱 全球实时汇率换算引擎")
@@ -316,33 +316,46 @@ elif app_mode == "💱 4. 全球实时汇率换算":
                 
         currency_options = list(currency_map.keys())
 
+        # --- 新增核心功能：初始化状态与互换回调函数 ---
+        if 'from_curr' not in st.session_state:
+            st.session_state.from_curr = currency_options[0] # 默认持有 CNY
+        if 'to_curr' not in st.session_state:
+            st.session_state.to_curr = currency_options[2]   # 默认兑换 THB
+
+        def swap_currencies():
+            # 点击按钮时触发：把 from 和 to 的值对调
+            st.session_state.from_curr, st.session_state.to_curr = st.session_state.to_curr, st.session_state.from_curr
+        # ----------------------------------------------
+
         st.divider()
         
-        # 布局：左边输入，中间箭头，右边目标
+        # 布局：左边输入，中间按钮，右边目标
         col1, col2, col3 = st.columns([2, 1, 2])
         
         with col1:
-            from_curr_label = st.selectbox("1. 我持有 (From)", currency_options, index=0) # 默认选中 CNY
+            # 注意：这里去掉了 index，改用 key 绑定 session_state
+            from_curr_label = st.selectbox("1. 我持有 (From)", currency_options, key="from_curr") 
             amount = st.number_input("输入换算金额", value=100.0, step=10.0, format="%.2f")
             
         with col2:
-            st.markdown("<h1 style='text-align: center; margin-top: 25px;'>🔄</h1>", unsafe_allow_html=True)
+            # 用一点空行把按钮顶下来，和下拉框对齐
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            # 绑定对调函数
+            st.button("🔄 互换货币", on_click=swap_currencies, use_container_width=True)
             
         with col3:
-            to_curr_label = st.selectbox("2. 兑换为 (To)", currency_options, index=2) # 默认选中 THB
+            to_curr_label = st.selectbox("2. 兑换为 (To)", currency_options, key="to_curr")
             
         # 提取真实的三字母代码
         from_code = currency_map[from_curr_label]
         to_code = currency_map[to_curr_label]
         
-        # 计算逻辑：因为 API 是以 CNY 为基准 (1 CNY = x 外币)
-        # 步骤 1：把输入的货币先折算回人民币基准
+        # 计算逻辑：因为 API 是以 CNY 为基准
         if from_code == "CNY":
             amount_in_cny = amount
         else:
             amount_in_cny = amount / live_rates[from_code]
             
-        # 步骤 2：把人民币转换为目标货币
         result = amount_in_cny * live_rates[to_code]
         
         st.divider()
