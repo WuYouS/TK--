@@ -5,7 +5,23 @@ import math
 import requests
 
 # ==================== 网页基础设置 ====================
-st.set_page_config(page_title="TK 卖家全能工具箱 4.0", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="TK 卖家全能工具箱 5.0", layout="wide", page_icon="🚀")
+
+# ==================== 状态保持与重置 (核心升级) ====================
+# 定义全局默认参数
+DEFAULTS = {
+    'cny_cost': 30.0,
+    'weight_g': 100.0,
+    'other_fixed_cny': 2.0,
+    'affiliate_p': 0.0,
+    'target_margin': 25.0,
+    'discount': 5.0
+}
+
+# 初始化全局变量（如果不存在的话）
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # ==================== 实时汇率抓取引擎 ====================
 @st.cache_data(ttl=43200) # 缓存12小时，防止API频繁调用被封IP
@@ -61,6 +77,13 @@ app_mode = st.sidebar.radio("选择使用的工具", [
     "💱 4. 全球实时汇率换算"
 ])
 
+# 一键重置按钮
+st.sidebar.divider()
+if st.sidebar.button("🔄 一键恢复默认数值", use_container_width=True):
+    for k, v in DEFAULTS.items():
+        st.session_state[k] = v
+    st.rerun() # 触发页面刷新重置
+
 # 仅在核算利润和定价时，显示国家选择和汇率微调
 if app_mode in ["💰 1. 利润反推 (精准运费版)", "🎯 2. 正向定价 (精准运费版)"]:
     st.sidebar.divider()
@@ -84,13 +107,13 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
     st.subheader("📦 1. 成本与规格")
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
-        cny_cost = st.number_input("产品拿货成本 (CNY)", value=30.0, step=1.0)
+        st.session_state.cny_cost = st.number_input("产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
     with row1_col2:
-        weight_g = st.number_input("包裹实际重量 (克/g)", value=100.0, step=10.0)
+        st.session_state.weight_g = st.number_input("包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
     with row1_col3:
-        other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=2.0, step=0.5)
+        st.session_state.other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
 
-    ship_local = calc_shipping(weight_g, config)
+    ship_local = calc_shipping(st.session_state.weight_g, config)
     ship_cny = ship_local / curr_rate if curr_rate > 0 else 0
     st.info(f"🚚 根据官方底表，该重量预估跨境运费为: **{ship_local:,.2f} {config['sym']}** (折合 ¥ {ship_cny:,.2f})")
 
@@ -107,14 +130,14 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
             local_price = cny_target_price * curr_rate
             st.success(f"🔄 折合当地售价: **{local_price:,.2f} {config['sym']}**")
     with row2_col2:
-        affiliate_p = st.number_input("达人带货佣金比例 (%)", value=0.0, step=1.0)
+        st.session_state.affiliate_p = st.number_input("达人带货佣金比例 (%)", value=float(st.session_state.affiliate_p), step=1.0)
 
-    total_percent_rate = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + affiliate_p + 1.0) / 100
-    total_fixed_local = ship_local + (other_fixed_cny * curr_rate)
+    total_percent_rate = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + st.session_state.affiliate_p + 1.0) / 100
+    total_fixed_local = ship_local + (st.session_state.other_fixed_cny * curr_rate)
     total_fees_local = local_price * total_percent_rate + total_fixed_local
     
     total_fees_cny = total_fees_local / curr_rate if curr_rate > 0 else 0
-    net_profit_cny = (local_price / curr_rate) - cny_cost - total_fees_cny if curr_rate > 0 else 0
+    net_profit_cny = (local_price / curr_rate) - st.session_state.cny_cost - total_fees_cny if curr_rate > 0 else 0
     profit_margin = (net_profit_cny / (local_price / curr_rate)) * 100 if local_price > 0 else 0
 
     st.divider()
@@ -128,56 +151,60 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
         breakdown = {
             "明细项": ["产品成本", "官方跨境运费", "打包耗材杂费", "平台佣金", "交易手续费", "营销/活动费", "税金", "达人佣金", "提现手续费(1%)", "最终净利润"],
             "金额 (CNY)": [
-                round(cny_cost, 2), round(ship_cny, 2), round(other_fixed_cny, 2),
+                round(st.session_state.cny_cost, 2), round(ship_cny, 2), round(st.session_state.other_fixed_cny, 2),
                 round((local_price * config['comm']/100) / curr_rate, 2),
                 round((local_price * config['trans']/100) / curr_rate, 2),
                 round((local_price * config['srv']/100) / curr_rate, 2),
                 round((local_price * config['tax']/100) / curr_rate, 2),
-                round((local_price * affiliate_p/100) / curr_rate, 2),
+                round((local_price * st.session_state.affiliate_p/100) / curr_rate, 2),
                 round((local_price * 0.01) / curr_rate, 2), round(net_profit_cny, 2)
             ]
         }
         st.table(breakdown)
 
 # ==========================================
-# 模块 2：正向定价 (精准运费版)
+# 模块 2：正向定价 (精准运费版)带人民币副显
 # ==========================================
 elif app_mode == "🎯 2. 正向定价 (精准运费版)":
     st.title("🎯 商品上架正向定价计算器")
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        cost = st.number_input("1. 产品拿货成本 (CNY)", value=30.0, step=1.0)
-        weight_g = st.number_input("2. 包裹实际重量 (克/g)", value=100.0, step=10.0)
-        other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=2.0, step=0.5)
+        st.session_state.cny_cost = st.number_input("1. 产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
+        st.session_state.weight_g = st.number_input("2. 包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
+        st.session_state.other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
     with col2:
-        target_margin = st.number_input("4. 目标净利润率 (%)", value=25.0, step=1.0)
-        discount = st.number_input("5. 前台拟设折扣 (如 5折 填 5)", value=5.0, step=0.5)
+        st.session_state.target_margin = st.number_input("4. 目标净利润率 (%)", value=float(st.session_state.target_margin), step=1.0)
+        st.session_state.discount = st.number_input("5. 前台拟设折扣 (如 5折 填 5)", value=float(st.session_state.discount), step=0.5)
     with col3:
-        affiliate = st.number_input("6. 计划给达人的佣金 (%)", value=0.0, step=1.0)
+        st.session_state.affiliate_p = st.number_input("6. 计划给达人的佣金 (%)", value=float(st.session_state.affiliate_p), step=1.0)
         
     st.info(f"**当前国家 ({target_country}) 平台费率预设：** 佣金 {config['comm']}% | 手续费 {config['trans']}% | 服务费 {config['srv']}% | 税金 {config['tax']}%")
     
-    ship_local = calc_shipping(weight_g, config)
+    ship_local = calc_shipping(st.session_state.weight_g, config)
     ship_cny = ship_local / curr_rate if curr_rate > 0 else 0
-    total_fixed_cost_cny = other_fixed_cny + ship_cny
+    total_fixed_cost_cny = st.session_state.other_fixed_cny + ship_cny
     
-    total_fee_percent = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + affiliate + 1.0) / 100
-    denominator = 1 - (target_margin / 100) - total_fee_percent
+    total_fee_percent = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + st.session_state.affiliate_p + 1.0) / 100
+    denominator = 1 - (st.session_state.target_margin / 100) - total_fee_percent
     
     st.divider()
     if denominator <= 0:
         st.error("🚨 警告：目标利润率与平台抽成加起来已超过 100%，定价公式崩溃！")
     else:
-        req_price_cny = (cost + total_fixed_cost_cny) / denominator
+        req_price_cny = (st.session_state.cny_cost + total_fixed_cost_cny) / denominator
         req_price_local = req_price_cny * curr_rate
-        original_price_local = req_price_local / (discount / 10)
-        net_profit_cny = req_price_cny * (target_margin / 100)
+        
+        original_price_local = req_price_local / (st.session_state.discount / 10)
+        original_price_cny = req_price_cny / (st.session_state.discount / 10)
+        
+        net_profit_cny = req_price_cny * (st.session_state.target_margin / 100)
         
         st.subheader("✅ 最终 ERP / 后台填报建议数据")
         r1, r2, r3 = st.columns(3)
-        r1.metric(f"ERP 前台划线原价", f"{original_price_local:,.2f} {config['sym']}")
-        r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}")
+        # 核心修改点：利用 metric 的 delta 属性，关闭颜色变化(delta_color="off")，实现底色小字的人民币完美双显
+        r1.metric(f"ERP 前台划线原价", f"{original_price_local:,.2f} {config['sym']}", f"约合 ¥ {original_price_cny:,.2f}", delta_color="off")
+        r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}", f"约合 ¥ {req_price_cny:,.2f}", delta_color="off")
         r3.metric(f"你这单将稳赚净利", f"¥ {net_profit_cny:,.2f}")
         
         st.caption(f"*(提示：当前折后售价中已自动包含预估 {ship_local:,.2f} {config['sym']} 的官方运费)*")
@@ -218,10 +245,7 @@ elif app_mode == "📊 3. 店铺数据筛选 (智能表格)":
                     df[col] = pd.to_numeric(df[col], errors='ignore')
                     
             st.subheader("添加筛选条件")
-            selected_columns = st.multiselect(
-                "请选择你需要用来筛选的表头（可多选）:", 
-                options=df.columns.tolist()
-            )
+            selected_columns = st.multiselect("请选择你需要用来筛选的表头（可多选）:", options=df.columns.tolist())
             
             filters = {}
             if selected_columns:
@@ -233,16 +257,13 @@ elif app_mode == "📊 3. 店铺数据筛选 (智能表格)":
                         
                         with col1:
                             eq_val = st.number_input(f"等于 ({col})", value=None, step=step_val, key=f"eq_{col}")
-                        
                         is_locked = (eq_val is not None)
-                        
                         with col2:
                             min_val = st.number_input(f"最小值 大于等于 ({col})", value=None, step=step_val, disabled=is_locked, key=f"min_{col}")
                         with col3:
                             max_val = st.number_input(f"最大值 小于等于 ({col})", value=None, step=step_val, disabled=is_locked, key=f"max_{col}")
                         
                         filters[col] = ('numeric', eq_val, min_val, max_val)
-                        
                     else:
                         unique_vals = df[col].dropna().unique().tolist()
                         selected_vals = st.multiselect(f"选择 {col} 状态", unique_vals, default=unique_vals, key=f"cat_{col}")
@@ -282,7 +303,7 @@ elif app_mode == "📊 3. 店铺数据筛选 (智能表格)":
             st.error(f"读取或处理文件时出错，请确认表格格式是否正确。错误信息: {e}")
 
 # ==========================================
-# 模块 4：全球实时汇率换算器 (带一键互换功能)
+# 模块 4：全球实时汇率换算器
 # ==========================================
 elif app_mode == "💱 4. 全球实时汇率换算":
     st.title("💱 全球实时汇率换算引擎")
@@ -291,66 +312,45 @@ elif app_mode == "💱 4. 全球实时汇率换算":
     if not live_rates:
         st.error("🚨 无法获取实时汇率，请检查服务器网络连接或 API 接口状态！")
     else:
-        # 定义跨境电商高频使用的“置顶货币”
         top_currencies = {
-            "CNY - 人民币 (中国)": "CNY",
-            "USD - 美元 (美国)": "USD",
-            "THB - 泰铢 (泰国)": "THB",
-            "VND - 越南盾 (越南)": "VND",
-            "PHP - 比索 (菲律宾)": "PHP",
-            "MYR - 林吉特 (马来)": "MYR",
-            "SGD - 新加坡元 (新加坡)": "SGD",
-            "IDR - 印尼盾 (印尼)": "IDR",
-            "EUR - 欧元 (欧洲)": "EUR",
-            "GBP - 英镑 (英国)": "GBP",
-            "JPY - 日元 (日本)": "JPY"
+            "CNY - 人民币 (中国)": "CNY", "USD - 美元 (美国)": "USD", "THB - 泰铢 (泰国)": "THB",
+            "VND - 越南盾 (越南)": "VND", "PHP - 比索 (菲律宾)": "PHP", "MYR - 林吉特 (马来)": "MYR",
+            "SGD - 新加坡元 (新加坡)": "SGD", "IDR - 印尼盾 (印尼)": "IDR", "EUR - 欧元 (欧洲)": "EUR",
+            "GBP - 英镑 (英国)": "GBP", "JPY - 日元 (日本)": "JPY"
         }
         
-        # 整理下拉列表：高频货币放最上面，其余的放下面
         all_codes = list(live_rates.keys())
         currency_map = top_currencies.copy()
-        
         for code in all_codes:
             if code not in currency_map.values():
                 currency_map[f"{code}"] = code
-                
         currency_options = list(currency_map.keys())
 
-        # --- 新增核心功能：初始化状态与互换回调函数 ---
         if 'from_curr' not in st.session_state:
-            st.session_state.from_curr = currency_options[0] # 默认持有 CNY
+            st.session_state.from_curr = currency_options[0] 
         if 'to_curr' not in st.session_state:
-            st.session_state.to_curr = currency_options[2]   # 默认兑换 THB
+            st.session_state.to_curr = currency_options[2]   
 
         def swap_currencies():
-            # 点击按钮时触发：把 from 和 to 的值对调
             st.session_state.from_curr, st.session_state.to_curr = st.session_state.to_curr, st.session_state.from_curr
-        # ----------------------------------------------
 
         st.divider()
-        
-        # 布局：左边输入，中间按钮，右边目标
         col1, col2, col3 = st.columns([2, 1, 2])
         
         with col1:
-            # 注意：这里去掉了 index，改用 key 绑定 session_state
             from_curr_label = st.selectbox("1. 我持有 (From)", currency_options, key="from_curr") 
             amount = st.number_input("输入换算金额", value=100.0, step=10.0, format="%.2f")
             
         with col2:
-            # 用一点空行把按钮顶下来，和下拉框对齐
             st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            # 绑定对调函数
             st.button("🔄 互换货币", on_click=swap_currencies, use_container_width=True)
             
         with col3:
             to_curr_label = st.selectbox("2. 兑换为 (To)", currency_options, key="to_curr")
             
-        # 提取真实的三字母代码
         from_code = currency_map[from_curr_label]
         to_code = currency_map[to_curr_label]
         
-        # 计算逻辑：因为 API 是以 CNY 为基准
         if from_code == "CNY":
             amount_in_cny = amount
         else:
@@ -359,14 +359,10 @@ elif app_mode == "💱 4. 全球实时汇率换算":
         result = amount_in_cny * live_rates[to_code]
         
         st.divider()
-        
-        # 巨幕显示换算结果
         st.markdown(f"""
         <div style='text-align: center; padding: 20px; background-color: #f0f2f6; border-radius: 10px; color: #31333F;'>
             <h3>换算结果</h3>
             <h1 style='color: #FF4B4B;'>{amount:,.2f} {from_code} = {result:,.4f} {to_code}</h1>
         </div>
         """, unsafe_allow_html=True)
-        
-        # 显示实时汇率参考牌价
         st.caption(f"**实时汇率参考：** 1 {from_code} = {(live_rates[to_code]/live_rates[from_code]):.6f} {to_code} &nbsp;&nbsp;|&nbsp;&nbsp; 1 {to_code} = {(live_rates[from_code]/live_rates[to_code]):.6f} {from_code}")
