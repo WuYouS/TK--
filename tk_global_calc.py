@@ -101,22 +101,22 @@ if app_mode in ["💰 1. 利润反推 (精准运费版)", "🎯 2. 正向定价 
 # ==========================================
 # 模块 1：利润反推 (精准运费版)
 # ==========================================
-if app_mode == "💰 1. 利润反推 (精准运费版)":
+if app_mode == "👉 1. 利润反推 (精准运费版)":
     st.title("💰 竞品售价反推利润模拟器")
     
     st.subheader("📦 1. 成本与规格")
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
-        st.session_state.cny_cost = st.number_input("产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
+        st.number_input("产品拿货成本 (CNY)", key="cny_cost", step=1.0)
     with row1_col2:
-        st.session_state.weight_g = st.number_input("包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
+        st.number_input("包裹实际重量 (克/g)", key="weight_g", step=10.0)
     with row1_col3:
-        st.session_state.other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
-
+        st.number_input("打包耗材等杂费 (CNY)", key="other_fixed_cny", step=0.5)
+        
     ship_local = calc_shipping(st.session_state.weight_g, config)
     ship_cny = ship_local / curr_rate if curr_rate > 0 else 0
-    st.info(f"🚚 根据官方底表，该重量预估跨境运费为: **{ship_local:,.2f} {config['sym']}** (折合 ¥ {ship_cny:,.2f})")
-
+    st.info(f"🚚 根据官方底表，该重量预估跨境运费为: **{ship_local:,.2f} {config['sym']}** (折合 ￥ {ship_cny:,.2f})")
+    
     st.divider()
     st.subheader("💵 2. 定价与佣金")
     row2_col1, row2_col2 = st.columns(2)
@@ -130,8 +130,8 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
             local_price = cny_target_price * curr_rate
             st.success(f"🔄 折合当地售价: **{local_price:,.2f} {config['sym']}**")
     with row2_col2:
-        st.session_state.affiliate_p = st.number_input("达人带货佣金比例 (%)", value=float(st.session_state.affiliate_p), step=1.0)
-
+        st.number_input("达人带货佣金比例 (%)", key="affiliate_p", step=1.0)
+        
     total_percent_rate = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + st.session_state.affiliate_p + 1.0) / 100
     total_fixed_local = ship_local + (st.session_state.other_fixed_cny * curr_rate)
     total_fees_local = local_price * total_percent_rate + total_fixed_local
@@ -139,14 +139,14 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
     total_fees_cny = total_fees_local / curr_rate if curr_rate > 0 else 0
     net_profit_cny = (local_price / curr_rate) - st.session_state.cny_cost - total_fees_cny if curr_rate > 0 else 0
     profit_margin = (net_profit_cny / (local_price / curr_rate)) * 100 if local_price > 0 else 0
-
+    
     st.divider()
     res1, res2, res3 = st.columns(3)
-    res1.metric("单均净利润 (CNY)", f"¥ {net_profit_cny:,.2f}")
+    res1.metric("单均净利润 (CNY)", f"￥ {net_profit_cny:,.2f}")
     res2.metric("实际净利率", f"{profit_margin:.2f} %")
-    res3.metric("平台及物流总扣费 (CNY)", f"¥ {total_fees_cny:,.2f}")
-
-    st.subheader("📝 资金流向明细拆解")
+    res3.metric("平台及物流总扣费 (CNY)", f"￥ {total_fees_cny:,.2f}")
+    
+    st.subheader("🧾 资金流向明细拆解")
     if curr_rate > 0:
         breakdown = {
             "明细项": ["产品成本", "官方跨境运费", "打包耗材杂费", "平台佣金", "交易手续费", "营销/活动费", "税金", "达人佣金", "提现手续费(1%)", "最终净利润"],
@@ -162,24 +162,24 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
         }
         st.table(breakdown)
 
-# ==========================================
-# 模块 2：正向定价 (精准运费版)带人民币副显
-# ==========================================
+# =======================================================
+# 模块 2: 正向定价 (精准运费版) 带人民币副显
+# =======================================================
 elif app_mode == "🎯 2. 正向定价 (精准运费版)":
     st.title("🎯 商品上架正向定价计算器")
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.session_state.cny_cost = st.number_input("1. 产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
-        st.session_state.weight_g = st.number_input("2. 包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
-        st.session_state.other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
+        st.number_input("1. 产品拿货成本 (CNY)", key="cny_cost", step=1.0)
+        st.number_input("2. 包裹实际重量 (克/g)", key="weight_g", step=10.0)
+        st.number_input("3. 打包耗材等杂费 (CNY)", key="other_fixed_cny", step=0.5)
     with col2:
-        st.session_state.target_margin = st.number_input("4. 目标净利润率 (%)", value=float(st.session_state.target_margin), step=1.0)
-        st.session_state.discount = st.number_input("5. 前台拟设折扣 (如 5折 填 5)", value=float(st.session_state.discount), step=0.5)
+        st.number_input("4. 目标净利润率 (%)", key="target_margin", step=1.0)
+        st.number_input("5. 前台拟设折扣 (如 5折 填 5)", key="discount", step=0.5)
     with col3:
-        st.session_state.affiliate_p = st.number_input("6. 计划给达人的佣金 (%)", value=float(st.session_state.affiliate_p), step=1.0)
+        st.number_input("6. 计划给达人的佣金 (%)", key="affiliate_p", step=1.0)
         
-    st.info(f"**当前国家 ({target_country}) 平台费率预设：** 佣金 {config['comm']}% | 手续费 {config['trans']}% | 服务费 {config['srv']}% | 税金 {config['tax']}%")
+    st.info(f"**当前国家 ({target_country}) 平台费率预设:** 佣金 {config['comm']}% | 手续费 {config['trans']}% | 服务费 {config['srv']}% | 税金 {config['tax']}%")
     
     ship_local = calc_shipping(st.session_state.weight_g, config)
     ship_cny = ship_local / curr_rate if curr_rate > 0 else 0
@@ -202,12 +202,12 @@ elif app_mode == "🎯 2. 正向定价 (精准运费版)":
         
         st.subheader("✅ 最终 ERP / 后台填报建议数据")
         r1, r2, r3 = st.columns(3)
-        # 核心修改点：利用 metric 的 delta 属性，关闭颜色变化(delta_color="off")，实现底色小字的人民币完美双显
-        r1.metric(f"ERP 前台划线原价", f"{original_price_local:,.2f} {config['sym']}", f"约合 ¥ {original_price_cny:,.2f}", delta_color="off")
-        r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}", f"约合 ¥ {req_price_cny:,.2f}", delta_color="off")
-        r3.metric(f"你这单将稳赚净利", f"¥ {net_profit_cny:,.2f}")
+        # 核心修改点：利用 metric 的 delta 属性，关闭箭头变化(delta_color="off")，实现底色小字的人民币完美双显
+        r1.metric(f"ERP 前台划线原价", f"{original_price_local:,.2f} {config['sym']}", f"约合 ￥ {original_price_cny:,.2f}", delta_color="off")
+        r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}", f"约合 ￥ {req_price_cny:,.2f}", delta_color="off")
+        r3.metric(f"单笔净利润预估", f"￥ {net_profit_cny:,.2f}")
         
-        st.caption(f"*(提示：当前折后售价中已自动包含预估 {ship_local:,.2f} {config['sym']} 的官方运费)*")
+        st.caption(f"(*提示：当前折后售价中已自动包含预估 {ship_local:,.2f} {config['sym']} 的官方运费*)")
 
 # ==========================================
 # 模块 3：店铺数据筛选 (智能表格)
