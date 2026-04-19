@@ -107,11 +107,11 @@ if app_mode == "👉 1. 利润反推 (精准运费版)":
     st.subheader("📦 1. 成本与规格")
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
-        st.number_input("产品拿货成本 (CNY)", key="cny_cost", step=1.0)
+        st.session_state.cny_cost = st.number_input("产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
     with row1_col2:
-        st.number_input("包裹实际重量 (克/g)", key="weight_g", step=10.0)
+        st.session_state.weight_g = st.number_input("包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
     with row1_col3:
-        st.number_input("打包耗材等杂费 (CNY)", key="other_fixed_cny", step=0.5)
+        st.session_state.other_fixed_cny = st.number_input("打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
         
     ship_local = calc_shipping(st.session_state.weight_g, config)
     ship_cny = ship_local / curr_rate if curr_rate > 0 else 0
@@ -130,7 +130,7 @@ if app_mode == "👉 1. 利润反推 (精准运费版)":
             local_price = cny_target_price * curr_rate
             st.success(f"🔄 折合当地售价: **{local_price:,.2f} {config['sym']}**")
     with row2_col2:
-        st.number_input("达人带货佣金比例 (%)", key="affiliate_p", step=1.0)
+        st.session_state.affiliate_p = st.number_input("达人带货佣金比例 (%)", value=float(st.session_state.affiliate_p), step=1.0)
         
     total_percent_rate = (config['comm'] + config['trans'] + config['srv'] + config['tax'] + st.session_state.affiliate_p + 1.0) / 100
     total_fixed_local = ship_local + (st.session_state.other_fixed_cny * curr_rate)
@@ -170,14 +170,14 @@ elif app_mode == "🎯 2. 正向定价 (精准运费版)":
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.number_input("1. 产品拿货成本 (CNY)", key="cny_cost", step=1.0)
-        st.number_input("2. 包裹实际重量 (克/g)", key="weight_g", step=10.0)
-        st.number_input("3. 打包耗材等杂费 (CNY)", key="other_fixed_cny", step=0.5)
+        st.session_state.cny_cost = st.number_input("1. 产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0)
+        st.session_state.weight_g = st.number_input("2. 包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0)
+        st.session_state.other_fixed_cny = st.number_input("3. 打包耗材等杂费 (CNY)", value=float(st.session_state.other_fixed_cny), step=0.5)
     with col2:
-        st.number_input("4. 目标净利润率 (%)", key="target_margin", step=1.0)
-        st.number_input("5. 前台拟设折扣 (如 5折 填 5)", key="discount", step=0.5)
+        st.session_state.target_margin = st.number_input("4. 目标净利润率 (%)", value=float(st.session_state.target_margin), step=1.0)
+        st.session_state.discount = st.number_input("5. 前台拟设折扣 (如 5折 填 5)", value=float(st.session_state.discount), step=0.5)
     with col3:
-        st.number_input("6. 计划给达人的佣金 (%)", key="affiliate_p", step=1.0)
+        st.session_state.affiliate_p = st.number_input("6. 计划给达人的佣金 (%)", value=float(st.session_state.affiliate_p), step=1.0)
         
     st.info(f"**当前国家 ({target_country}) 平台费率预设:** 佣金 {config['comm']}% | 手续费 {config['trans']}% | 服务费 {config['srv']}% | 税金 {config['tax']}%")
     
