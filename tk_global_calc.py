@@ -107,7 +107,6 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
     st.subheader("📦 1. 成本与规格")
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
-        # 💡 核心强化：加上了独立 key，彻底防止回弹报错
         st.session_state.cny_cost = st.number_input("产品拿货成本 (CNY)", value=float(st.session_state.cny_cost), step=1.0, key="m1_cny")
     with row1_col2:
         st.session_state.weight_g = st.number_input("包裹实际重量 (克/g)", value=float(st.session_state.weight_g), step=10.0, key="m1_weight")
@@ -147,6 +146,17 @@ if app_mode == "💰 1. 利润反推 (精准运费版)":
     res2.metric("实际净利率", f"{profit_margin:.2f} %")
     res3.metric("平台及物流总扣费 (CNY)", f"￥ {total_fees_cny:,.2f}")
     
+    # 🌟 新增：投流数据指标专属看板
+    st.subheader("🎯 投流数据指标 (GMV Max/广告投放参考)")
+    ad1, ad2 = st.columns(2)
+    if net_profit_cny > 0:
+        breakeven_roi = (local_price / curr_rate) / net_profit_cny
+        ad1.metric("⚖️ 保本 ROI (ROAS)", f"{breakeven_roi:.2f}", "GMV Max 广告设置须高于此数值", delta_color="normal")
+        ad2.metric("💸 最高可承受 CPA (单均广告费)", f"￥ {net_profit_cny:,.2f}", f"约合 {(net_profit_cny * curr_rate):,.2f} {config['sym']}", delta_color="off")
+    else:
+        ad1.metric("⚖️ 保本 ROI (ROAS)", "当前为亏本状态", "建议优化成本结构", delta_color="inverse")
+        ad2.metric("💸 最高可承受 CPA", "0.00", "无法承担任何广告投放", delta_color="inverse")
+
     st.subheader("🧾 资金流向明细拆解")
     if curr_rate > 0:
         breakdown = {
@@ -203,12 +213,19 @@ elif app_mode == "🎯 2. 正向定价 (精准运费版)":
         
         st.subheader("✅ 最终 ERP / 后台填报建议数据")
         r1, r2, r3 = st.columns(3)
-        # 核心修改点：利用 metric 的 delta 属性，关闭箭头变化(delta_color="off")，实现底色小字的人民币完美双显
         r1.metric(f"ERP 前台划线原价", f"{original_price_local:,.2f} {config['sym']}", f"约合 ￥ {original_price_cny:,.2f}", delta_color="off")
         r2.metric(f"买家实际支付折后价", f"{req_price_local:,.2f} {config['sym']}", f"约合 ￥ {req_price_cny:,.2f}", delta_color="off")
         r3.metric(f"单笔净利润预估", f"￥ {net_profit_cny:,.2f}")
         
         st.caption(f"(*提示：当前折后售价中已自动包含预估 {ship_local:,.2f} {config['sym']} 的官方运费*)")
+
+        # 🌟 新增：投流数据指标专属看板
+        st.subheader("🎯 投流数据指标 (GMV Max/广告投放参考)")
+        ad1, ad2 = st.columns(2)
+        breakeven_roi = req_price_cny / net_profit_cny if net_profit_cny > 0 else 0
+        ad1.metric("⚖️ 保本 ROI (ROAS)", f"{breakeven_roi:.2f}", "GMV Max 广告设置须高于此数值", delta_color="normal")
+        ad2.metric("💸 最高可承受 CPA (单均广告费)", f"￥ {net_profit_cny:,.2f}", f"约合 {(net_profit_cny * curr_rate):,.2f} {config['sym']}", delta_color="off")
+
 # ==========================================
 # 模块 3：店铺数据筛选 (智能表格)
 # ==========================================
@@ -346,23 +363,4 @@ elif app_mode == "💱 4. 全球实时汇率换算":
             st.button("🔄 互换货币", on_click=swap_currencies, use_container_width=True)
             
         with col3:
-            to_curr_label = st.selectbox("2. 兑换为 (To)", currency_options, key="to_curr")
-            
-        from_code = currency_map[from_curr_label]
-        to_code = currency_map[to_curr_label]
-        
-        if from_code == "CNY":
-            amount_in_cny = amount
-        else:
-            amount_in_cny = amount / live_rates[from_code]
-            
-        result = amount_in_cny * live_rates[to_code]
-        
-        st.divider()
-        st.markdown(f"""
-        <div style='text-align: center; padding: 20px; background-color: #f0f2f6; border-radius: 10px; color: #31333F;'>
-            <h3>换算结果</h3>
-            <h1 style='color: #FF4B4B;'>{amount:,.2f} {from_code} = {result:,.4f} {to_code}</h1>
-        </div>
-        """, unsafe_allow_html=True)
-        st.caption(f"**实时汇率参考：** 1 {from_code} = {(live_rates[to_code]/live_rates[from_code]):.6f} {to_code} &nbsp;&nbsp;|&nbsp;&nbsp; 1 {to_code} = {(live_rates[from_code]/live_rates[to_code]):.6f} {from_code}")
+            to_curr_label = st.selectbox
